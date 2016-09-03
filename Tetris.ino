@@ -30,13 +30,13 @@ byte tetrimos[] = {0b0111000, // I
                    0b1101101, // S
                    0b1011101, // T
                    0b1011110, // Z
-                  };
-
+                  }; 
+                  
 
 
 int tetrimo = 6;
 // 0, 1, 2, 3 representing 0, 90, 180, 270 degrees
-int rotation = 1;
+int rotation = 0;
 int posx = 0;
 int posy = 9;
 int frame = 0;
@@ -57,7 +57,7 @@ void initTetris() {
 void updateTetris() {
   //tetrimo = (currentTime / 1000000) % 7;
   //rotation = (currentTime / 1000000) % 4;
-  posy = 9 - (currentTime / 100000) % 10;
+  //posy = 9 - (currentTime / 100000) % 10;
 
   // -- after user input --
   //both for rotation and translation:
@@ -82,6 +82,7 @@ void updateTetrimo() {
   //check if there is a collision
   //  loop through the six bits of the tetrimo and compare
   //  their new position with the base.
+  int newposy = posy + 1;
 
   //  if there is a collision when the tetrimo goes down 1 pixel:
   //  allow 1 more "tick", afterwards, lock the block to the base and spawn a new one.
@@ -90,6 +91,7 @@ void updateTetrimo() {
   //    and lower all the other blocks by one pixel.
 
   //  if the newly spawned tetrimo collides with base immidiatly, game over.;
+ // posy = posy < 0 ? 9 : posy - 1;
 }
 
 // writes the base and the block matrix to the main matrix
