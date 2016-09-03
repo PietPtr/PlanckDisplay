@@ -33,10 +33,10 @@ byte tetrimos[] = {0b0111000, // I 0
                   }; 
                  
 
-int tetrimo = 6;
+int tetrimo = 1;
 // 0, 1, 2, 3 represnting 0, 90, 180, 270 degrees
-int rotation = 0;
-int posx = 0;
+int rotation = 3;
+int posx = 1;
 int posy = 5;
 int frame = 0;
 int level = 1;
@@ -45,10 +45,10 @@ int framesPerTick = 62;
 
 bool collidedLastTick = false;
 
-int base[ROWS][COLS] = {OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
+int base[ROWS][COLS] = {ON,  ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
+                        ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
                         OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
-                        ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
-                        ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
+                        ON,  ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
 
 void initTetris() {
   /*int newmatrix[ROWS][COLS] = {{ON,  ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
@@ -118,15 +118,40 @@ void updateTetrimo() {
     }
 
     posy = 9;
+    posx = 1;
+    rotation = 1;
     tetrimo = random(0, 6);
-    for (int row = 0; row < 12; row++) {
-      if (base[row][0] == base[row][1] == base[row][2] == base[row][3] == 1) {
-        for (int i = 0; i < 4; i++) {
-          
+
+
+    // Search the rows thrice, because it is impossible to
+    // clear more than 3 rows at once. The search for a row
+    // is cut off immidietly if one is found so the next
+    // iteration of this loop can start.
+    int clearedRows = 0;
+    
+    for (int search = 0; search < 3; search++) {
+      for (int col = 0; col < 12; col++) {
+        if (base[0][col] == ON &&
+            base[1][col] == ON &&
+            base[2][col] == ON &&
+            base[3][col] == ON) {
+          clearedRow++;
+          for (int i = 0; i < 4; i++) {
+            base[i][col] = OFF;
+          }
+          for (int r = col + 1; r < 12 - col; r++) {
+            for (int j = 0; j < 4; j++) {
+              base[j][r - 1] = base[j][r];
+              base[j][r] = OFF;
+            }
+          }
         }
-        for (int i = 0; i < 
+        break;
       }
     }
+
+    score += clearedRows * clearedRows;
+    
   }
   
   
