@@ -45,10 +45,10 @@ int framesPerTick = 62;
 
 bool collidedLastTick = false;
 
-int base[ROWS][COLS] = {ON,  ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
+int base[ROWS][COLS] = {ON,  ON,  ON,  ON, ON, ON, ON, OFF, OFF, OFF, OFF, OFF,
                         ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
                         OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
-                        ON,  ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
+                        ON,  ON,  ON,  ON, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
 
 void initTetris() {
   /*int newmatrix[ROWS][COLS] = {{ON,  ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
@@ -135,7 +135,7 @@ void updateTetrimo() {
             base[1][col] == ON &&
             base[2][col] == ON &&
             base[3][col] == ON) {
-          clearedRow++;
+          clearedRows++;
           for (int i = 0; i < 4; i++) {
             base[i][col] = OFF;
           }
