@@ -35,26 +35,30 @@ byte tetrimos[] = {0b0111000, // I 0
 
 int tetrimo = 1;
 // 0, 1, 2, 3 represnting 0, 90, 180, 270 degrees
-int rotation = 3;
+int rotation = 0;
 int posx = 1;
-int posy = 5;
+int posy = 9;
 int frame = 0;
 int level = 1;
 int score = 0;
+int totalRowsCleared = 0;
 int framesPerTick = 62;
 
+bool gameOver = false;
 bool collidedLastTick = false;
+bool displayGameOverScreen = false;
 
-int base[ROWS][COLS] = {ON,  ON,  ON,  ON, ON, ON, ON, OFF, OFF, OFF, OFF, OFF,
-                        ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
+int base[ROWS][COLS] = {OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
                         OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
-                        ON,  ON,  ON,  ON, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
+                        OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
+                        OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
+
+int gameOverScreen [ROWS][COLS] = {OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF,
+                                   OFF, ON,  OFF, OFF, ON,  ON,  ON,  OFF, OFF, OFF, OFF, OFF,
+                                   ON,  ON,  ON,  OFF, OFF, ON,  OFF, OFF, OFF, OFF, OFF, OFF,
+                                   OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF};
 
 void initTetris() {
-  /*int newmatrix[ROWS][COLS] = {{ON,  ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
-                               {ON,  ON,  ON,  ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, OFF},
-                               {OFF, OFF, OFF, OFF, OFF, OFF, OFF, ON,  ON,  OFF, OFF, OFF},
-                               {ON,  OFF, OFF, OFF, OFF, OFF, OFF, OFF, ON,  ON,  OFF, OFF}};*/
   //setMatrix(newmatrix);
 }
 
@@ -68,9 +72,34 @@ void updateTetris() {
   //check for a collision with base and the walls
   //  no collision: apply the rotation and translation
   //  collision: ignore input, carry on
+  if (Serial.available() > 0) {
+    int incomingByte = Serial.read();
+
+    if (incomingByte == 44) {
+      int newRotation = rotation + 1 > 3 ? 0 : rotation + 1;
+      if (!getCollision(posx, posy, newRotation)) {
+        rotation = newRotation;
+      }
+      else {
+        Serial.println("Can't rotate, there is a collision");
+      }
+    }
+    else if (incomingByte == 97) {
+      int newx = posx - 1;
+      if (!getCollision(newx, posy, rotation)) {
+        posx = newx;
+      }
+    }
+    else if (incomingByte == 101) {
+      int newx = posx + 1;
+      if (!getCollision(newx, posy, rotation)) {
+        posx = newx;
+      }
+    }
+  }
 
   // This should be calculated on level change, not every frame.
-  framesPerTick = level * -2.8 + 62.8;
+  
 
   if (frame % framesPerTick == 0) {
     updateTetrimo();
@@ -78,7 +107,12 @@ void updateTetris() {
 
   frame++;
 
-  drawTetris();
+  if (displayGameOverScreen) {
+    drawTetris(gameOverScreen);
+  }
+  else {
+    drawTetris(base);
+  }
 }
 
 void updateTetrimo() {
@@ -86,18 +120,18 @@ void updateTetrimo() {
   //  loop through the six bits of the tetrimo and compare
   //  their new position with the base.
   int newposy = posy - 1;
-  bool collision = getCollision(posx, newposy);
+  bool collision = getCollision(posx, newposy, rotation);
   
   if (!collision) {
     posy = newposy;
   }
-  else if (!collidedLastTick && collision) {
+  else if (!collidedLastTick && collision && !gameOver) {
     //  if there is a collision when the tetrimo goes down 1 pixel:
     //  allow 1 more "tick", afterwards.
     collidedLastTick = true;
     
   }
-  else if (collidedLastTick) {
+  else if (collidedLastTick && !gameOver) {
     //  lock the block to the base and spawn a new one.
     //  after locking, check if a row is full.
     //    if full, remove the row, add points to the score, 
@@ -117,11 +151,7 @@ void updateTetrimo() {
       }
     }
 
-    posy = 9;
-    posx = 1;
-    rotation = 1;
-    tetrimo = random(0, 6);
-
+   
 
     // Search the rows thrice, because it is impossible to
     // clear more than 3 rows at once. The search for a row
@@ -145,15 +175,41 @@ void updateTetrimo() {
               base[j][r] = OFF;
             }
           }
+          break;
         }
-        break;
       }
     }
 
+    // handling score stuff
     score += clearedRows * clearedRows;
+    totalRowsCleared += clearedRows;
+
+    level = totalRowsCleared / 10 + 1;
+    framesPerTick = level * -2.8 + 62.8;
     
+
+    // Spawn a new tetrimo and check for game over
+    posy = 9;
+    posx = 1;
+    rotation = 1;
+    tetrimo = random(0, 6);
+
+    if (getCollision(posx, posy, rotation)) {
+      // display the score in binary
+      // only supports scores up to 65536...
+      int ctr = 0;
+      for (int col = 8; col < 12; col++) {
+        for (int row = 3; row >= 0; row--) {
+          gameOverScreen[row][col] = ((score >> ctr) & 1) * ON;
+          ctr++;
+        }
+      }
+      gameOver = true;
+    }
   }
-  
+  else if (gameOver) {
+    displayGameOverScreen = true;
+  }
   
 
   //  if the newly spawned tetrimo collides with base immidiatly, game over.;
@@ -163,23 +219,24 @@ void updateTetrimo() {
 // usage: pass the new coordinates to this function
 // it wil calculate wether a collision with base or walls has occured
 // it assumes the current tetrimo and rotation
-bool getCollision(int newx, int newy) {
-  int index = tetrimo + rotation * 7;
+bool getCollision(int newx, int newy, int newrot) {
+  int index = tetrimo + newrot * 7;
   
   int tetrimoWidth = 3 - ((tetrimos[index] >> 6) & 1);
   int tetrimoLength = ((tetrimos[index] >> 6) & 1) + 2;
 
-  if (newx < 0 || newx > 3 - tetrimoWidth) {
+  if (newx < 0 || newx > 4 - tetrimoWidth) {
+    Serial.println("X");
     return true;
   }
-  if (newy < 0 || newy > 11 - tetrimoLength) {
+  if (newy < 0 || newy > 12 - tetrimoLength) {
     return true;
   }
   
   int ctr = 0;
   for (int y = 0; y < tetrimoLength; y++) {
     for (int x = 0; x < tetrimoWidth; x++) {
-      if (((tetrimos[index] >> ctr) & 1) && base[newx + x][newy + y]) {        
+      if (((tetrimos[index] >> ctr) & 1) && base[newx + x][newy + y]) {
         return true;
       }
       ctr++;
@@ -190,42 +247,24 @@ bool getCollision(int newx, int newy) {
 
 // writes the base and the block matrix to the main matrix
 // first this function rotates the base matrix 90 degrees.
-void drawTetris() {
-  setMatrix(base);
+void drawTetris(int baseScreen[][12]) {
+  setMatrix(baseScreen);
 
-  /*int index = tetrimo + rotation * 7;
-
-  // check if the orientation bit is 0, so the tetrimo is 3x2
-  int ctr = 0;
-  if (~(tetrimos[index] >> 6) & 1) {
-    for (int y = 0; y < 2; y++) {
-      for (int x = 0; x < 3; x++) {
-        matrix[posx + x][posy + y] = ((tetrimos[index] >> ctr) & 1) * ON;
-        ctr++;
-      }
-    }
-  }
-  // otherwise the tetrimo is 2x3
-  else {
-    for (int y = 0; y < 3; y++) {
-      for (int x = 0; x < 2; x++) {
-        matrix[posx + x][posy + y] = ((tetrimos[index] >> ctr) & 1) * ON;
-        ctr++;
-      }
-    }
-  }*/
-  int index = tetrimo + rotation * 7;
+  if (!gameOver) {
+    int index = tetrimo + rotation * 7;
   
-  int tetrimoWidth = 3 - ((tetrimos[index] >> 6) & 1);
-  int tetrimoLength = ((tetrimos[index] >> 6) & 1) + 2;
-  int ctr = 0;
-  for (int y = 0; y < tetrimoLength; y++) {
-    for (int x = 0; x < tetrimoWidth; x++) {
-      if ((tetrimos[index] >> ctr) & 1)
-        matrix[posx + x][posy + y] = 500;
-      ctr++;
+    int tetrimoWidth = 3 - ((tetrimos[index] >> 6) & 1);
+    int tetrimoLength = ((tetrimos[index] >> 6) & 1) + 2;
+    int ctr = 0;
+    for (int y = 0; y < tetrimoLength; y++) {
+      for (int x = 0; x < tetrimoWidth; x++) {
+        if ((tetrimos[index] >> ctr) & 1)
+          matrix[posx + x][posy + y] = 500;
+        ctr++;
+      }
     }
   }
+  
 }
 
 
